@@ -1,6 +1,6 @@
-// app/vault/vault-client.tsx
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
 type Item = {
@@ -18,7 +18,7 @@ export default function VaultClient({ initialItems }: { initialItems: Item[] }) 
     async function remove(id: string) {
         if (!confirm("Delete this item?")) return;
         const res = await fetch(`/api/vault/${id}`, { method: "DELETE" });
-        if (res.ok) setItems(items.filter((i) => i.id !== id));
+        if (res.ok) setItems(prev => prev.filter(i => i.id !== id));
     }
 
     return (
@@ -50,11 +50,10 @@ function VaultCard({ item, onDelete }: { item: Item; onDelete: () => void }) {
     }
 
     return (
-        <article className="rounded-2xl border border-border bg-card text-card-foreground p-4 shadow-sm transition-colors">
-            {/* HEADER: relative so we can absolutely position Show + Delete */}
-            <div className="relative min-h-[44px]">
-                {/* Title/URL (leave room on right so text doesn't collide with buttons) */}
-                <div className="min-w-0 pr-[11rem]">
+        <article className="rounded-xl border border-border bg-secondary/60 text-card-foreground p-4 shadow-sm transition-colors">
+            {/* HEADER: flex row; actions on the right (no absolute positioning) */}
+            <div className="flex items-start gap-3">
+                <div className="min-w-0">
                     <h3 className="truncate text-lg font-semibold">{item.title || "(no title)"}</h3>
                     {item.url && (
                         <a
@@ -68,32 +67,14 @@ function VaultCard({ item, onDelete }: { item: Item; onDelete: () => void }) {
                     )}
                 </div>
 
-                {/* SHOW: same size as Delete; align left edge to password column.
-           Grid below uses gap-4 (1rem). Column 2 starts at 50% + gap/2. */}
-                <button
-                    onClick={() => setShowPw((s) => !s)}
-                    className="absolute top-0 rounded-lg border border-border bg-secondary px-4 py-2 text-foreground hover:bg-secondary/70 transition-colors hidden sm:block sm:left-[calc(50%+0.5rem)]"
-                >
-                    {showPw ? "Hide" : "Show"}
-                </button>
-
-                {/* On mobile, just keep Show next to Delete so it doesn't overlap */}
-                <div className="sm:hidden absolute right-[8.5rem] top-0">
-                    <button
-                        onClick={() => setShowPw((s) => !s)}
-                        className="rounded-lg border border-border bg-secondary px-4 py-2 text-foreground hover:bg-secondary/70 transition-colors"
-                    >
+                <div className="ml-auto flex items-center gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => setShowPw(s => !s)}>
                         {showPw ? "Hide" : "Show"}
-                    </button>
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={onDelete}>
+                        Delete
+                    </Button>
                 </div>
-
-                {/* DELETE: top-right */}
-                <button
-                    onClick={onDelete}
-                    className="absolute right-0 top-0 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-destructive hover:bg-destructive/20 transition-colors"
-                >
-                    Delete
-                </button>
             </div>
 
             {/* BODY: two equal columns under the header */}
@@ -119,9 +100,7 @@ function VaultCard({ item, onDelete }: { item: Item; onDelete: () => void }) {
                         role="button"
                         tabIndex={0}
                         onClick={() => copy(item.password, "password")}
-                        onKeyDown={(e) =>
-                            (e.key === "Enter" || e.key === " ") && copy(item.password, "password")
-                        }
+                        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && copy(item.password, "password")}
                         className="min-h-[44px] w-full break-all rounded-lg border border-border bg-muted px-3 py-2 font-mono hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring flex items-center transition-colors"
                         aria-label="Password (tap to copy)"
                         title="Tap to copy"
