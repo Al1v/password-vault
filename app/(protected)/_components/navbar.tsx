@@ -9,42 +9,22 @@ export const Navbar = () => {
   const pathname = usePathname();
 
   return (
-      <nav className="bg-secondary flex justify-between items-center p-4 rounded-xl w-[600px] shadow-sm">
-        <div className="flex gap-x-2">
-          <Button
-              asChild
-              variant={pathname === "/server" ? "default" : "outline"}
-          >
-            <Link href="/server">Server</Link>
-          </Button>
-          <Button
-              asChild
-              variant={pathname === "/client" ? "default" : "outline"}
-          >
-            <Link href="/client">Client</Link>
-          </Button>
-          <Button
-              asChild
-              variant={pathname === "/admin" ? "default" : "outline"}
-          >
-            <Link href="/admin">Admin</Link>
-          </Button>
-          <Button
-              asChild
-              variant={pathname === "/settings" ? "default" : "outline"}
-          >
-            <Link href="/settings">Settings</Link>
-          </Button>
-          {/* 🟢 NEW: Vault redirect */}
-          <Button
-              asChild
-              variant={pathname === "/vault" ? "default" : "outline"}
-          >
-            <Link href="/vault">Vault</Link>
-          </Button>
+      // full-width bar
+      <nav className="w-full bg-transparent">
+        {/* centered inner container matches page width */}
+        <div className="mx-auto w-full max-w-3xl px-4">
+          <div className="bg-secondary rounded-xl shadow-sm p-4 flex items-center justify-between">
+            <div className="flex gap-x-2">
+              <Button asChild variant={pathname.startsWith("/info") ? "default" : "outline"}>
+                <Link href="/info">Info</Link>
+              </Button>
+              <Button asChild variant={pathname.startsWith("/vault") ? "default" : "outline"}>
+                <Link href="/vault">Vault</Link>
+              </Button>
+            </div>
+            <UserButton />
+          </div>
         </div>
-
-        <UserButton />
       </nav>
   );
 };
