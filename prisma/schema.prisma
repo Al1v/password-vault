@@ -19,6 +19,20 @@ model User {
   isTwoFactorEnabled    Boolean                @default(false)
   twoFactorConfirmation TwoFactorConfirmation?
   vaultItems            VaultItem[]
+  twoFactorSecret       String? // store base32 TOTP secret (ideally encrypt at rest)
+  backupCodes           TwoFactorBackupCode[]
+}
+
+model TwoFactorBackupCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@unique([userId, codeHash])
 }
 
 model Account {
