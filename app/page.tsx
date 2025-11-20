@@ -18,9 +18,9 @@ export default function Home() {
             font.className
           )}
         >
-          🔐 Auth
+          🔐 My vault
         </h1>
-        <p className="text-white text-lg">A simple authentication service</p>
+        <p className="text-white text-lg">My personal vault</p>
         <div>
           <LoginButton asChild>
             <Button variant="secondary" size="lg">
