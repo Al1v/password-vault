@@ -55,19 +55,30 @@ export const LoginForm = () => {
 
         startTransition(async () => {
             try {
-                const twoFactorCode = values.code?.trim() || undefined;
+                // FIX: Properly handle the twoFactorCode
+                let twoFactorCode: string | undefined = undefined;
+
+                if (values.code && values.code.trim() !== '') {
+                    twoFactorCode = values.code.trim();
+                }
+
+                console.log("[LOGIN FORM] Submitting:", {
+                    email: values.email,
+                    has2FACode: !!twoFactorCode,
+                    twoFactorCode,
+                    showTwoFactor
+                });
 
                 const res = await signIn("credentials", {
                     redirect: false,
                     email: values.email,
                     password: values.password,
-                    twoFactorCode,
+                    twoFactorCode: twoFactorCode, // Explicitly pass undefined if no code
                     callbackUrl,
                 });
 
                 console.log("[LOGIN FORM] signIn result:", res);
 
-                // Якщо взагалі нічого не повернулось — щось пішло дуже не так
                 if (!res) {
                     setError("Something went wrong");
                     return;
@@ -80,26 +91,29 @@ export const LoginForm = () => {
                     return;
                 }
 
-                // 🟡 Випадок, коли перший запит каже "треба 2FA"
-                // (authorize повернув pending2FA, а signIn не дав помилки)
-                if (!res.error && !showTwoFactor) {
+                // 🟡 2FA Required - Check for specific error or no error with no redirect
+                if ((res.error === "TwoFactorRequired" || (!res.error && !res.url)) && !showTwoFactor) {
+                    console.log("[LOGIN FORM] 2FA required detected");
                     setShowTwoFactor(true);
+                    setSuccess("Please enter your 2FA code");
                     return;
                 }
 
                 // 🔴 Помилка логіну
                 if (res.error) {
+                    console.log("[LOGIN FORM] Login error:", res.error);
                     if (res.error === "CredentialsSignin") {
                         setError("Invalid email or password");
+                    } else if (res.error.includes("TwoFactor") || res.error.includes("2FA")) {
+                        setError("Invalid 2FA code");
+                        // Keep the 2FA form visible if it's a 2FA error
+                        if (!showTwoFactor) setShowTwoFactor(true);
                     } else {
                         setError(res.error);
                     }
-                    // На будь-яку помилку вимикаємо 2FA-екран, щоб юзер міг спробувати ще раз
-                    setShowTwoFactor(false);
                     return;
                 }
 
-                // fallback
                 setError("Something went wrong");
             } catch (e) {
                 console.error("[LOGIN FORM] signIn error:", e);

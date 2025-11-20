@@ -24,7 +24,8 @@ declare module "next-auth" {
 const getBaseUrl = () => {
   if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL;
   if (process.env.AUTH_REDIRECT_PROXY_URL) return process.env.AUTH_REDIRECT_PROXY_URL;
-  return "http://localhost:3000";
+  //return "http://localhost:3000";
+  return ""
 };
 
 export const {
@@ -58,6 +59,13 @@ export const {
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider !== "credentials") return true;
+
+      // Handle 2FA pending case - use a custom property
+      if ((user as any).pending2FA) {
+        console.log("[AUTH] Detected pending2FA, setting custom error");
+        // Instead of throwing, we'll use a custom property that the frontend can detect
+        return "/auth/login?error=TwoFactorRequired";
+      }
 
       if (!user.id) return false;
       const existingUser = await getUserById(user.id);
