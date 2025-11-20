@@ -31,12 +31,12 @@ const authConfig = {
 
           const { email, password, twoFactorCode, backupCode } = parsed.data;
 
-          // ✅ Fetch user (this is fine at runtime)
+          //  Fetch user
           const user = await getUserByEmail(email);
-          console.log("[AUTH] user:", !!user, "hasPassword:", !!user?.password);
+          console.log("[AUTH] user:", !!user, "hasPassword:", !!user?.password, "is2FAEnabled:", user?.isTwoFactorEnabled);
           if (!user || !user.password) return null;
 
-          // ✅ Dynamic import bcryptjs (avoids bundler weirdness)
+          //  Dynamic import bcryptjs
           const bcryptModule = await import("bcryptjs");
           const bcrypt = bcryptModule.default || bcryptModule;
 
@@ -44,15 +44,20 @@ const authConfig = {
           console.log("[AUTH] password ok:", ok);
           if (!ok) return null;
 
-          // 2FA disabled -> success
+          // 2FA disabled -> success immediately
           if (!user.isTwoFactorEnabled) {
             console.log("[AUTH] 2FA disabled -> success");
             return user;
           }
 
-          // 2FA required, but no code provided -> mark as pending
-          if (!twoFactorCode && !backupCode) {
-            console.log("[AUTH] 2FA required -> pending2FA");
+          console.log("[AUTH] 2FA is enabled, checking codes...");
+          console.log("[AUTH] twoFactorCode:", twoFactorCode, "backupCode:", backupCode);
+
+          // 2FA enabled but no code provided -> return special object to trigger 2FA UI
+          const hasNo2FACode = (!twoFactorCode || twoFactorCode === "undefined" || twoFactorCode.trim() === "") && !backupCode;
+
+          if (hasNo2FACode) {
+            console.log("[AUTH] 2FA required but no code provided -> returning pending2FA");
             return {
               id: user.id,
               email: user.email ?? undefined,
@@ -61,13 +66,15 @@ const authConfig = {
             } as any;
           }
 
-          // ✅ Dynamic import otplib only when needed
-          if (twoFactorCode) {
-            if (!user.twoFactorSecret) return null;
+          //  Validate TOTP code
+          if (twoFactorCode && twoFactorCode !== "undefined" && twoFactorCode.trim() !== "") {
+            if (!user.twoFactorSecret) {
+              console.log("[AUTH] No 2FA secret found for user");
+              return null;
+            }
 
             const otplibModule = await import("otplib");
-            const authenticator =
-                otplibModule.authenticator || (otplibModule as any).authenticator;
+            const authenticator = otplibModule.authenticator || (otplibModule as any).authenticator;
 
             const valid = authenticator.verify({
               token: twoFactorCode,
@@ -76,10 +83,11 @@ const authConfig = {
             console.log("[AUTH] totp valid:", valid);
             if (!valid) return null;
 
+            console.log("[AUTH] 2FA validation successful -> returning user");
             return user;
           }
 
-          // ✅ Backup codes – dynamic import Prisma only here
+          //  Validate backup codes
           if (backupCode) {
             const [{ PrismaClient }, bcryptModule] = await Promise.all([
               import("@prisma/client"),
@@ -107,6 +115,7 @@ const authConfig = {
             return user;
           }
 
+          console.log("[AUTH] No valid 2FA method found");
           return null;
         } catch (e) {
           console.error("[AUTH] authorize error:", e);
