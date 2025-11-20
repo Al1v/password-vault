@@ -25,11 +25,13 @@ export const {
   signIn,
   signOut,
 } = NextAuth({
-  // --- pages (optional) ---
   pages: {
     signIn: "/auth/login",
     error: "/auth/error",
   },
+
+  trustHost: true,
+  redirectProxyUrl: process.env.AUTH_REDIRECT_PROXY_URL,
 
   events: {
     async linkAccount({ user }) {
@@ -45,7 +47,6 @@ export const {
       if (account?.provider !== "credentials") return true;
 
       if (!user.id) return false;
-
       const existingUser = await getUserById(user.id);
       if (!existingUser) return false;
 
