@@ -19,6 +19,14 @@ declare module "next-auth" {
     } & DefaultSession["user"];
   }
 }
+
+// Determine the base URL dynamically
+const getBaseUrl = () => {
+  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL;
+  if (process.env.AUTH_REDIRECT_PROXY_URL) return process.env.AUTH_REDIRECT_PROXY_URL;
+  return "http://localhost:3000";
+};
+
 export const {
   handlers: { GET, POST },
   auth,
@@ -31,7 +39,12 @@ export const {
   },
 
   trustHost: true,
-  redirectProxyUrl: process.env.AUTH_REDIRECT_PROXY_URL,
+
+  // Use dynamic URL
+  ...(process.env.NODE_ENV === "production" && {
+    basePath: "/api/auth",
+    secret: process.env.AUTH_SECRET,
+  }),
 
   events: {
     async linkAccount({ user }) {
@@ -95,6 +108,19 @@ export const {
       }
 
       return token;
+    },
+
+    // Add redirect callback to ensure proper URLs
+    async redirect({ url, baseUrl }) {
+      // Use the external URL for redirects
+      const externalUrl = process.env.AUTH_REDIRECT_PROXY_URL || baseUrl;
+
+      // Allows relative callback URLs
+      if (url.startsWith("/")) return `${externalUrl}${url}`
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === externalUrl) return url
+
+      return externalUrl
     },
   },
 
