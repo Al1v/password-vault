@@ -1,0 +1,66 @@
+name: Deploy to Debian via PM2
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (not strictly needed, but harmless)
+        uses: actions/checkout@v4
+
+      - name: Start SSH agent and add key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy on server
+        run: |
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -s << 'EOF'
+          set -e
+
+          APP_DIR="${APP_DIR:-/srv/myapp}"
+          PM2_APP_NAME="${PM2_APP_NAME:-myapp}"
+
+          echo "[DEPLOY] cd to app dir: $APP_DIR"
+          cd "$APP_DIR"
+
+          echo "[DEPLOY] Fetching latest code..."
+          # If you use main, this will track origin/main; for master it will track origin/master
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD || echo main)
+          git fetch origin "$CURRENT_BRANCH"
+          git reset --hard "origin/$CURRENT_BRANCH"
+
+          echo "[DEPLOY] Installing dependencies..."
+          if command -v npm >/dev/null 2>&1; then
+            npm ci || npm install
+          else
+            echo "npm not found in PATH"; exit 1
+          fi
+
+          echo "[DEPLOY] Building app..."
+          npm run build
+
+          echo "[DEPLOY] Restarting PM2 app: $PM2_APP_NAME"
+          if pm2 list | grep -q "$PM2_APP_NAME"; then
+            pm2 restart "$PM2_APP_NAME"
+          else
+            pm2 start npm --name "$PM2_APP_NAME" -- start
+            pm2 save
+          fi
+
+          echo "[DEPLOY] Done."
+          EOF
+        env:
+          APP_DIR: ${{ secrets.APP_DIR }}
+          PM2_APP_NAME: ${{ secrets.PM2_APP_NAME }}
