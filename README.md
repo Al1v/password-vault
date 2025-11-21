@@ -1,1 +1,1 @@
-my vault app
+Personal vault app
