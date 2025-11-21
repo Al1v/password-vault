@@ -20,7 +20,7 @@ export default function Home() {
         >
           🔐 My vault
         </h1>
-        <p className="text-white text-lg">My personal vault</p>
+        <p className="text-white text-lg">Personal vault app</p>
         <div>
           <LoginButton asChild>
             <Button variant="secondary" size="lg">
