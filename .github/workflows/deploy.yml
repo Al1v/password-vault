@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout (not strictly needed, but harmless)
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Start SSH agent and add key
@@ -35,14 +35,17 @@ jobs:
           cd "$APP_DIR"
 
           echo "[DEPLOY] Fetching latest code..."
-          # If you use main, this will track origin/main; for master it will track origin/master
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD || echo main)
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD || echo master)
           git fetch origin "$CURRENT_BRANCH"
           git reset --hard "origin/$CURRENT_BRANCH"
 
-          echo "[DEPLOY] Installing dependencies..."
+          echo "[DEPLOY] Installing dependencies for $NODE_ENV..."
           if command -v npm >/dev/null 2>&1; then
-            npm ci || npm install
+            if [ -f "package-lock.json" ]; then
+              npm ci --only=production
+            else
+              npm install --only=production
+            fi
           else
             echo "npm not found in PATH"; exit 1
           fi
@@ -52,10 +55,33 @@ jobs:
 
           echo "[DEPLOY] Restarting PM2 app: $PM2_APP_NAME"
           if pm2 list | grep -q "$PM2_APP_NAME"; then
-            pm2 restart "$PM2_APP_NAME"
+            if ! pm2 restart "$PM2_APP_NAME"; then
+              echo "[DEPLOY] PM2 restart failed, investigating..."
+              pm2 logs "$PM2_APP_NAME" --lines 10
+              exit 1
+            fi
           else
             pm2 start npm --name "$PM2_APP_NAME" -- start
             pm2 save
+          fi
+          
+          echo "[DEPLOY] Performing health check on port $APP_PORT..."
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            sleep 5
+            echo "[DEPLOY] Health check attempt $((RETRY_COUNT + 1)) on port $APP_PORT..."
+            if curl -f http://localhost:$APP_PORT >/dev/null 2>&1; then
+              echo "[DEPLOY] Health check passed - application is running on port $APP_PORT"
+              break
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+          done
+
+          if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+            echo "[DEPLOY] Health check failed on port $APP_PORT after $MAX_RETRIES attempts"
+            pm2 logs "$PM2_APP_NAME" --lines 20
+            exit 1
           fi
 
           echo "[DEPLOY] Done."
@@ -63,3 +89,5 @@ jobs:
         env:
           APP_DIR: ${{ secrets.APP_DIR }}
           PM2_APP_NAME: ${{ secrets.PM2_APP_NAME }}
+          NODE_ENV: production
+          APP_PORT: ${{ secrets.APP_PORT }}
