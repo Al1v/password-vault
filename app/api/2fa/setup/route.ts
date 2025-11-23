@@ -25,3 +25,5 @@ export async function POST() {
     const qr = await otpauthToDataURL(otpauth);
     return NextResponse.json({ otpauth, qr });
 }
+
+export const dynamic = 'force-dynamic';

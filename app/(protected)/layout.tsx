@@ -5,6 +5,10 @@ import Providers from "../providers";
 import { Navbar } from "./_components/navbar";
 import { SessionProvider } from "@/components/session-provider";
 
+// ADD: Export runtime configuration
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 interface Props {
     children: React.ReactNode;
 }
@@ -26,7 +30,6 @@ const ProtectedLayout = async ({ children }: Props) => {
         <html lang="en" className="dark" suppressHydrationWarning>
         <body className="min-h-screen bg-black text-white antialiased">
         <Providers>
-            {/* Add SessionProvider for automatic logout */}
             <SessionProvider>
                 <div className="mx-auto w-full max-w-3xl px-4 py-6 space-y-6">
                     <Navbar />

@@ -1,6 +1,10 @@
-// app/api/auth/session-check/route.ts
+// app/api/session-check/route.ts
 import { auth } from '@/auth';
 import { NextResponse } from 'next/server';
+
+// ADD: Export runtime configuration
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
@@ -13,7 +17,7 @@ export async function GET() {
             );
         }
 
-        // Check if session is expired (you might need to adjust this based on your JWT setup)
+        // Check if session is expired
         const now = Math.floor(Date.now() / 1000);
         const tokenExpiry = (session as any).exp || 0;
 
@@ -35,7 +39,7 @@ export async function GET() {
         });
 
     } catch (error) {
-        console.error('Session check error:', error);
+        console.error('[SESSION-CHECK] Error:', error);
         return NextResponse.json(
             { valid: false, message: 'Session validation failed' },
             { status: 500 }

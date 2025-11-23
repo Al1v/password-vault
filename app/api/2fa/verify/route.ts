@@ -44,3 +44,5 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ enabled: true, backupCodes: backup });
 }
+
+export const dynamic = 'force-dynamic';

@@ -64,3 +64,5 @@ export async function POST(req: Request) {
     res.headers.set("Cache-Control", "no-store");
     return res;
 }
+
+export const dynamic = 'force-dynamic';

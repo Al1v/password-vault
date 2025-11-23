@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from 'next/image';
 
 export default function TwoFactorCard() {
     const [qr, setQr] = useState<string | null>(null);
@@ -58,7 +59,7 @@ export default function TwoFactorCard() {
                     <p className="text-sm text-gray-600">
                         Scan this QR with Google Authenticator / 1Password / Authy, then enter the 6-digit code:
                     </p>
-                    <img src={qr} alt="Authenticator QR" className="w-44 h-44 border" />
+                    <Image src={qr} alt="Authenticator QR" className="w-44 h-44 border" />
                     <input
                         value={code}
                         onChange={(e) => setCode(e.target.value)}
