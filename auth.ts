@@ -17,6 +17,20 @@ declare module "next-auth" {
       isTwoFactorEnabled: boolean;
       isOAuth: boolean;
     } & DefaultSession["user"];
+    // ADDED: Session expiration timestamp
+    exp?: number;
+  }
+}
+
+// ADDED: JWT interface extension
+declare module "@auth/core/jwt" {
+  interface JWT {
+    role?: UserRole;
+    isTwoFactorEnabled?: boolean;
+    isOAuth?: boolean;
+    pending2FA?: boolean;
+    // ADDED: JWT expiration timestamp
+    exp?: number;
   }
 }
 
@@ -27,6 +41,9 @@ const getBaseUrl = () => {
   //return "http://localhost:3000";
   return ""
 };
+
+const SESSION_MAX_AGE = Number(process.env.AUTH_SESSION_MAX_AGE ?? 300);
+const SESSION_UPDATE_AGE = Number(process.env.AUTH_SESSION_UPDATE_AGE ?? 60);
 
 export const {
   handlers: { GET, POST },
@@ -46,6 +63,16 @@ export const {
     basePath: "/api/auth",
     secret: process.env.AUTH_SECRET,
   }),
+
+  jwt: {
+    maxAge: SESSION_MAX_AGE,
+  },
+
+  session: {
+    strategy: "jwt",
+    maxAge: SESSION_MAX_AGE,        // from env, default 5 min
+    updateAge: SESSION_UPDATE_AGE,  // from env, default 1 min
+  },
 
   events: {
     async linkAccount({ user }) {
@@ -91,28 +118,50 @@ export const {
         session.user.email = token.email ?? session.user.email ?? null;
       }
 
+      // ADDED: Pass expiration timestamp to session
+      if (token.exp) {
+        session.exp = token.exp;
+      }
+
       (session as any).pending2FA = Boolean((token as any).pending2FA);
       return session;
     },
 
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
+      // ADDED: Set expiration timestamp when token is created or user signs in
+      if (user || trigger === "signIn") {
+        // Calculate expiration time (current time + session max age)
+        const nowInSeconds = Math.floor(Date.now() / 1000);
+        token.exp = nowInSeconds + SESSION_MAX_AGE;
+      }
+
       if (!token.sub) return token;
 
-      const existingUser = await getUserById(token.sub);
-      if (!existingUser) return token;
+      // ADDED: Only fetch user data on sign in or if user data is missing
+      if (trigger === "signIn" || !token.role) {
+        const existingUser = await getUserById(token.sub);
+        if (existingUser) {
+          const existingAccount = await getAccountByUserId(existingUser.id);
 
-      const existingAccount = await getAccountByUserId(existingUser.id);
-
-      token.isOAuth = !!existingAccount;
-      token.name = existingUser.name;
-      token.email = existingUser.email;
-      token.role = existingUser.role;
-      token.isTwoFactorEnabled = existingUser.isTwoFactorEnabled;
+          token.isOAuth = !!existingAccount;
+          token.name = existingUser.name;
+          token.email = existingUser.email;
+          token.role = existingUser.role as UserRole;
+          token.isTwoFactorEnabled = existingUser.isTwoFactorEnabled;
+        }
+      }
 
       if (user && (user as any).pending2FA) {
         (token as any).pending2FA = true;
       } else if (user) {
         delete (token as any).pending2FA;
+      }
+
+      // ADDED: Check if token is expired
+      if (token.exp && token.exp < Math.floor(Date.now() / 1000)) {
+        console.log("[AUTH] JWT token expired");
+        // You could throw an error here to force re-authentication
+        // throw new Error("Token expired");
       }
 
       return token;
@@ -133,7 +182,6 @@ export const {
   },
 
   adapter: PrismaAdapter(db) as Adapter,
-  session: { strategy: "jwt" },
 
   ...authConfig,
 });

@@ -1,28 +1,38 @@
+// app/(protected)/layout.tsx
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import Providers from "../providers";
 import { Navbar } from "./_components/navbar";
+import { SessionProvider } from "@/components/session-provider";
 
 interface Props {
     children: React.ReactNode;
 }
 
 const ProtectedLayout = async ({ children }: Props) => {
-    const session = await auth();
+    let session = null;
 
-    if (!session) redirect("/auth/login");
+    try {
+        session = await auth();
+    } catch (e) {
+        console.error("[ProtectedLayout] auth() error, treating as no session:", e);
+    }
+
+    if (!session) {
+        redirect("/auth/login");
+    }
 
     return (
         <html lang="en" className="dark" suppressHydrationWarning>
         <body className="min-h-screen bg-black text-white antialiased">
         <Providers>
-            {/* shared centered container */}
-            <div className="mx-auto w-full max-w-3xl px-4 py-6 space-y-6">
-                <Navbar />
-                <main className="space-y-10">
-                    {children}
-                </main>
-            </div>
+            {/* Add SessionProvider for automatic logout */}
+            <SessionProvider>
+                <div className="mx-auto w-full max-w-3xl px-4 py-6 space-y-6">
+                    <Navbar />
+                    <main className="space-y-10">{children}</main>
+                </div>
+            </SessionProvider>
         </Providers>
         </body>
         </html>
